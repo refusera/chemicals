@@ -96,8 +96,8 @@ public class DownWebIdUtils {
     /**
      *  危险货物分类
      * */
-    public static Document riskCargoCategory(String webId){
-        String url = "http://www.hgmsds.com/hg-ehs-wx?decrypt=" + webId;
+    public static Document riskCargoCategory(String hgId){
+        String url = "http://www.hgmsds.com/hg-ehs-wx";
         Document doc = null;
         try {
             doc = Jsoup.connect(url)
@@ -108,6 +108,7 @@ public class DownWebIdUtils {
                     .header("Accept-Encoding", "gzip, deflate")
                     .header("Accept-Language", "zh-CN,zh;q=0.9")
                     .cookies(cookieMap())
+                    .data("decrypt", hgId)
                     .timeout(10*1000)
                     .get();
         }catch (Exception e){

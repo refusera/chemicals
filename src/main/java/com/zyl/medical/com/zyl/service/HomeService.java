@@ -118,23 +118,20 @@ public class HomeService {
 
     /**
      *  危险货物分类的数据入库
-     *
      * */
     public String riskCategoryBaseInfo(String chemicals){
         logger.info("HomeService.riskCategoryBaseInfo，检索的产品为：{}", chemicals);
         String jsonContent = DownWebIdUtils.findWebInfo(chemicals,2);
-        System.out.println(jsonContent);
         try {
             if (!StringUtils.isEmpty(jsonContent)){
                 JSONArray jsonArray = JSONArray.parseArray(jsonContent);
                 for (int i=0; i<jsonArray.size(); i++){
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
                     try {
-                        StringBuffer sql = new StringBuffer("INSERT INTO base_info (web_id, hg_id, cas_no, name_en, name_ch) VALUES (\"");
-                        sql.append(java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8")+"\","+jsonObject.getInteger("hgId")+",\""+jsonObject.getString("casNo")+"\",\"");
-                        sql.append(jsonObject.getString("nameEn") + "\",\"" + jsonObject.getString("nameCh") + "\")");
-                        jdbcTemplate.execute(sql.toString());
-                        logger.info("HomeService.riskCategoryBaseInfo，入库成功：{}", sql.toString());
+                        String sql = "INSERT INTO risk_base_info (web_id, hg_id, cas_no, name_en, name_ch) VALUES (?,?,?,?,?);";
+                        jdbcTemplate.update(sql, jsonObject.getInteger("id"), java.net.URLDecoder.decode(jsonObject.getString("hgId"), "UTF-8"),
+                                jsonObject.getString("casNo"), jsonObject.getString("nameEn"), jsonObject.getString("nameCh"));
+                        logger.info("HomeService.riskCategoryBaseInfo，入库成功：{}", jsonObject.getString("nameCh"));
                     }catch (Exception e){
                         logger.warn("HomeService.riskCategoryBaseInfo，库中已存在：{}", jsonObject.getString("nameCh"));
                     }
@@ -152,25 +149,50 @@ public class HomeService {
      * */
     public String riskCargoCategory(){
 
-        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM base_info WHERE risk_cargo_cateogry_status=0 LIMIT 10;";
-        String content = null;
-        Document document = null;
+        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM risk_base_info WHERE is_processed=0 LIMIT 10;";
+        Map<String, Object> resultMap = new HashMap<>();
         try {
             List<Map<String, Object>> mapList = jdbcTemplate.queryForList(querySql);
             logger.info("HomeService.riskCargoCategory，查询未经处理的数据条数：{}", mapList.size());
-
             if (!ObjectUtils.isEmpty(mapList)){
                 JSONArray jsonArray = JSONArray.parseArray(JSON.toJSONString(mapList));
                 for (int i=0; i<jsonArray.size(); i++){
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
-                    document = DownWebIdUtils.riskCargoCategory(jsonObject.getString("webId"));
-                    System.out.println(document);
-                    System.out.println();
+                    Document document = DownWebIdUtils.riskCargoCategory(jsonObject.getString("hgId"));
+                    Elements listTable = document.getElementsByClass("ehstab");
+                    Map<String, String> baseMap = new HashMap<>();
+                    List<Map<String, String[]>> cargoList = new ArrayList<>();
+                    for (Element table : listTable){
+                        Elements listTr = table.getElementsByTag("tr");
+                        for (Element tr : listTr){
+                            if (tr.children().size() == 2){
+                                baseMap.put(tr.child(0).text().trim(), tr.child(1).text().trim());
+                            }else if (tr.children().size() == 3){
+                                Map<String, String[]> map = new HashMap<>();
+                                map.put(tr.child(0).text().trim(), new String[]{tr.child(1).text().trim(), tr.child(2).text().trim()});
+                                cargoList.add(map);
+                            }
+                        }
+                    }
+                    resultMap.put("baseInfo", baseMap);
+                    resultMap.put("riskCargo", cargoList);
+                    if (ObjectUtils.isEmpty(resultMap.get("baseInfo")) && ObjectUtils.isEmpty(resultMap.get("riskCargo"))){
+                        //若为空，则代表当前产品无危险产品信息
+                        String isNullSql = "UPDATE risk_base_info SET is_processed=2 where id=" + jsonObject.getInteger("id");
+                        jdbcTemplate.execute(isNullSql);
+                        logger.info("HomeService.riskCargoCategory，该产品无危险货物描述：{}", jsonObject.getString("nameCh"));
+                    }else {
+                        String insertSql = "INSERT INTO risk_chemicals_data (base_id, json) VALUES (?,?);";
+                        jdbcTemplate.update(insertSql, jsonObject.getInteger("id"), JSON.toJSONString(resultMap));
+                        String updateStatus = "UPDATE risk_base_info SET is_processed=1 where id=" + jsonObject.getInteger("id");
+                        jdbcTemplate.execute(updateStatus);
+                        logger.info("HomeService.riskCargoCategory，入库成功：{}", jsonObject.getString("nameCh"));
+                    }
                 }
             }
         }catch (Exception e){
             logger.error("HomeService.riskCargoCategory，查询失败：{}", e);
         }
-        return null;
+        return JSON.toJSONString(resultMap);
     }
 }
