@@ -13,17 +13,17 @@ public class DownWebIdUtils {
 
     /**
      *  通过产品名称查询他们平台的产品ID，因为后续操作都是基于他们平台的ID进行查询的
-     * @param type  1=化学品数据，
+     * @param type  1=化学品数据，2=危险货物分类，3=食品接触材料原辅料查询
      * */
     public static String  findWebInfo(String productName, int type){
 
         String resultStr = "";
         String url = "";
         try {
-
             switch (type){
                 case 1 : url = "http://www.hgmsds.com/showChemicalDetails";break;
                 case 2 : url = "http://www.hgmsds.com/showChemicalWxDetails";break;
+                case 3 : url = "http://www.hgmsds.com/showChemicalFcmDetails";break;
                 default:break;
             }
             resultStr = Jsoup.connect(url)
@@ -96,8 +96,8 @@ public class DownWebIdUtils {
     /**
      *  危险货物分类
      * */
-    public static Document riskCargoCategory(String webId){
-        String url = "http://www.hgmsds.com/hg-ehs-wx?decrypt=" + webId;
+    public static Document riskCargoCategory(String hgId){
+        String url = "http://www.hgmsds.com/hg-ehs-wx";
         Document doc = null;
         try {
             doc = Jsoup.connect(url)
@@ -108,6 +108,7 @@ public class DownWebIdUtils {
                     .header("Accept-Encoding", "gzip, deflate")
                     .header("Accept-Language", "zh-CN,zh;q=0.9")
                     .cookies(cookieMap())
+                    .data("decrypt", hgId)
                     .timeout(10*1000)
                     .get();
         }catch (Exception e){
@@ -155,10 +156,38 @@ public class DownWebIdUtils {
         return cookieMap;
     }
 
-    public static void main(String[] args) throws UnsupportedEncodingException {
 
-        String webId = "D4cEZbO8iWrvSsjgWKjUoA%3D%3D";
-        System.out.println(java.net.URLDecoder.decode(webId, "UTF-8"));
-        //System.out.println(riskCargoCategory(webId));
+    public static Document downQueryByUn(int nuNo){
+        String url = "http://www.hgmsds.com/hg-ehs-transportation?decrypt="+EcryptAESUtils.encode(nuNo+"")+"&unno="+nuNo;
+        Document doc = null;
+        try {
+            doc = Jsoup.connect(url).ignoreHttpErrors(true).ignoreContentType(true).get();
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
+        return doc;
+    }
+
+    public static Document findRawMaterialDoc(String webId){
+
+        String url = "http://www.hgmsds.com/hg-ehs-fcm";
+        Document document = null;
+        try {
+            document = Jsoup.connect(url)
+                    //.ignoreContentType(true).ignoreHttpErrors(true)
+                    .referrer("http://www.hgmsds.com/hg-ehs-wx")
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.81 Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+                    .header("Accept-Encoding", "gzip, deflate")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9")
+                    .cookies(cookieMap())
+                    .data("decrypt", webId)
+                    .timeout(10*1000)
+                    .get();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return document;
     }
 }

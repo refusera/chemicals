@@ -17,13 +17,14 @@ public class HomeController {
     private HomeService homeService;
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
+
+    /********************************************************************************************************************************************************************/
+    /***************************************************************          化学品数据          ***********************************************************************/
+    /********************************************************************************************************************************************************************/
     /**
-     *
-     *  通过检索的单词，入库当前平台的ID（因为后续的所有查询，都是基于他们平台的ID的）
-     *
-     *  当前这一步并不是查询信息，而是通过产品名称，搜索到这个产品在当前平台的ID，后续所有操作都是基于他们平台查询到的这个ID进行查询
-     *
-     * @param chemicals : 检索的产品名字
+     *  第一板块：化学品数据
+     *      第一部分：获取当前板块的所有产品ID
+     * @param chemicals : 检索的产品名称
      * */
     @RequestMapping(value = "/before", method = RequestMethod.GET)
     @ResponseBody
@@ -34,7 +35,9 @@ public class HomeController {
 
 
     /**
-     *  这一步具体还不清楚要做啥，目前的做法是拿到匹配库的产品进行检索生成的一张表（对应他们平台对于这个产品生成的ID），用这张表所有产品的ID都进行检索，然后分别入库
+     *
+     *  第一板块：化学品数据
+     *      第二部分：通过产品ID，进行检索查询
      * */
     @RequestMapping(value = "/chemicalsData", method = RequestMethod.GET)
     @ResponseBody
@@ -44,9 +47,13 @@ public class HomeController {
     }
 
 
+
+    /********************************************************************************************************************************************************************/
+    /***************************************************************          危险货物分类          ***********************************************************************/
+    /********************************************************************************************************************************************************************/
     /**
-     *
-     *
+     *  第二板块：危险货物分类
+     *      第一部分：获取所有产品的ID
      * */
     @RequestMapping(value = "/riskCategoryBaseInfo", method = RequestMethod.GET)
     @ResponseBody
@@ -57,12 +64,53 @@ public class HomeController {
     }
 
     /**
-     *  查询产品的危险货物分类
+     *  第二板块：危险货物分类
+     *      第二部分：通过获取的产品ID，进行检索查询
      * */
     @RequestMapping(value = "riskCargoCategory", method = RequestMethod.GET)
     @ResponseBody
     public String riskCargoCategory(HttpServletRequest request){
         logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
         return homeService.riskCargoCategory();
+    }
+
+
+    /********************************************************************************************************************************************************************/
+    /***************************************************************          危险货物分类          ***********************************************************************/
+    /********************************************************************************************************************************************************************/
+
+    /**
+     *  UN编号查询
+     * @param totalCount 一次性选择处理多少条  （0-5000）
+     * */
+    @RequestMapping(value = "/queryByUn", method = RequestMethod.GET)
+    @ResponseBody
+    public String queryByUn(@RequestParam int totalCount, HttpServletRequest request){
+        logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
+        return homeService.queryByUn(totalCount);
+    }
+
+    /**
+     *  食品接触材料原辅料查询
+     *  两个板块：
+     *      第一部分：查询所有产品的ID
+     * */
+    @RequestMapping(value = "/queryRawMaterialId", method = RequestMethod.GET)
+    @ResponseBody
+    public String queryRawMaterialId(@RequestParam String product, HttpServletRequest request){
+        logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
+        return homeService.queryRawMaterialId(product);
+    }
+
+    /**
+     *  食品接触材料原辅料查询
+     *  两个板块：
+     *      第二部分：通过产品ID，查询商品
+     * */
+    @RequestMapping(value = "/queryRawMaterialInfo", method = RequestMethod.GET)
+    @ResponseBody
+    public String queryRawMaterialInfo(HttpServletRequest request){
+        logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
+        return homeService.queryRawMaterialInfo();
     }
 }
