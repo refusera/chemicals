@@ -46,7 +46,7 @@ public class HomeService {
                         sql.append(java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8")+"\","+jsonObject.getInteger("hgId")+",\""+jsonObject.getString("casNo")+"\",\"");
                         sql.append(jsonObject.getString("nameEn") + "\",\"" + jsonObject.getString("nameCh") + "\")");
                         jdbcTemplate.execute(sql.toString());
-                        logger.info("HomeService.beforeSigle，入库成功：{}", sql.toString());
+                        logger.info("HomeService.beforeSigle，入库成功：{}", jsonObject.getString("nameCh"));
                     }catch (Exception e){
                         logger.warn("HomeService.beforeSigle，库中已存在：{}", jsonObject.getString("nameCh"));
                     }
@@ -64,7 +64,7 @@ public class HomeService {
     public String chemicalsData(){
         Map<String, Object> resultMap = new HashMap<>();
         //查询生产的产品库
-        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM base_info WHERE is_processed=0 LIMIT 1;";
+        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM base_info WHERE is_processed=0 LIMIT 10;";
         try {
             List<Map<String, Object>> mapList = jdbcTemplate.queryForList(querySql);
             logger.info("HomeService.productInfo，查询所有未经过处理的产品条数：{}", mapList.size());
@@ -202,48 +202,47 @@ public class HomeService {
      *
      *  编号范围： 1000-6000
      * */
-    public String queryByUn(int totalCount){
+    public String queryByUn(int totalCount) {
 
         String selectSql = "select id,un_number unNumber from query_by_un where is_processed=0 limit " + totalCount;
         List<Map<String, Object>> mapList = jdbcTemplate.queryForList(selectSql);
-        for (Map<String, Object> map : mapList){
+        for (Map<String, Object> map : mapList) {
             int unNumber = Integer.parseInt(map.get("unNumber").toString());
             logger.info("HomeService.queryByUn，当前查询UN编号为：{}", unNumber);
             try {
                 Document document = DownWebIdUtils.downQueryByUn(unNumber);
-                if (!ObjectUtils.isEmpty(document.getElementsByClass("ehstab"))){
+                if (!ObjectUtils.isEmpty(document.getElementsByClass("ehstab"))) {
                     Map<String, Object> allDataMap = new HashMap<>();
                     Elements listTable = document.getElementsByClass("ehstab");
-                    for (int j=0; j<listTable.size(); j++){
+                    for (int j = 0; j < listTable.size(); j++) {
                         Elements listTr = listTable.get(j).getElementsByTag("tr");
-                        Map<String , String> dataMap = new HashMap<>();
-                        for (Element tr : listTr){
-                            if (tr.children().size() == 2){
+                        Map<String, String> dataMap = new HashMap<>();
+                        for (Element tr : listTr) {
+                            if (tr.children().size() == 2) {
                                 dataMap.put(tr.child(0).text().trim(), tr.child(1).text().trim());
                             }
                         }
-                        allDataMap.put("data"+j, dataMap);
+                        allDataMap.put("data" + j, dataMap);
                     }
 
                     //插入数据库
                     String insertSql = "update query_by_un set json=? where id = " + Integer.parseInt(map.get("id").toString());
                     jdbcTemplate.update(insertSql, JSON.toJSONString(allDataMap));
                     //修改状态
-                    String updateSql = "update query_by_un set is_processed=1 where id="+Integer.parseInt(map.get("id").toString());
+                    String updateSql = "update query_by_un set is_processed=1 where id=" + Integer.parseInt(map.get("id").toString());
                     jdbcTemplate.execute(updateSql);
                     logger.info("HomeService.queryByNo，插入数据库成功：{}，病修改状态为1", unNumber);
-                }else {
-                    String updateSql = "update query_by_un set is_processed=2 where id="+Integer.parseInt(map.get("id").toString());
+                } else {
+                    String updateSql = "update query_by_un set is_processed=2 where id=" + Integer.parseInt(map.get("id").toString());
                     jdbcTemplate.execute(updateSql);
                     logger.info("HomeService.queryByNo，当前编号无信息：{}，并修改状态为2", unNumber);
                 }
-            }catch (Exception e){
+            } catch (Exception e) {
                 logger.error("HomeService.queryByNo，查询失败：{}", e);
             }
         }
         return null;
     }
-
     /**
      *  食品接触材料原辅料查询
      *  两个板块：
@@ -258,8 +257,12 @@ public class HomeService {
                 for (int i=0; i<jsonArray.size(); i++){
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
                     String insertSql = "insert into rawmaterial_id(cas, cname, fca, web_id) values (?,?,?,?);";
-                    jdbcTemplate.update(insertSql, jsonObject.getString("cas"), jsonObject.getString("cname"), jsonObject.getString("fca"), java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8"));
-                    logger.info("HomeService.queryRawMaterialId， 插入数据库成功：{}", jsonObject.getString("cname"));
+                    try {
+                        jdbcTemplate.update(insertSql, jsonObject.getString("cas"), jsonObject.getString("cname"), jsonObject.getString("fca"), java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8"));
+                        logger.info("HomeService.queryRawMaterialId， 插入数据库成功：{}", jsonObject.getString("cname"));
+                    }catch (Exception e){
+                        logger.info("HomeService.queryRawMaterialId， 插入的数据已存在：{}", jsonObject.getString("cname"));
+                    }
                 }
             }
         }catch (Exception e){

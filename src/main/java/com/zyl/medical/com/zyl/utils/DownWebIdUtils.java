@@ -130,7 +130,7 @@ public class DownWebIdUtils {
             default:break;
         }
         dataMap.put("casno", jsonObject.getString("casNo"));
-        dataMap.put("ecno", ecNo);
+        dataMap.put("ecno", ecNo==null?"":ecNo);
         dataMap.put("nameCh", jsonObject.getString("nameCh"));
         dataMap.put("nameEn", jsonObject.getString("nameEn"));
         return dataMap;
