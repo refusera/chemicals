@@ -9,13 +9,24 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 
-    @RequestMapping("/search")
+@RequestMapping("/search")
 @RestController
 public class HomeController {
 
     @Autowired
     private HomeService homeService;
     private Logger logger = LoggerFactory.getLogger(this.getClass());
+
+
+    /**
+     *  整合所有接口的功能
+     * */
+    @RequestMapping(value = "/main", method = RequestMethod.GET)
+    @ResponseBody
+    public String main(HttpServletRequest request){
+        logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
+        return homeService.main();
+    }
 
 
     /********************************************************************************************************************************************************************/
@@ -32,7 +43,6 @@ public class HomeController {
         logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
         return homeService.beforeSigle(chemicals);
     }
-
 
     /**
      *
@@ -77,7 +87,6 @@ public class HomeController {
     /********************************************************************************************************************************************************************/
     /***************************************************************          UN编号查询          ***********************************************************************/
     /********************************************************************************************************************************************************************/
-
     /**
      *  UN编号查询
      * @param totalCount 一次性选择处理多少条  （0-5000）
@@ -90,13 +99,9 @@ public class HomeController {
     }
 
 
-
-
     /********************************************************************************************************************************************************************/
-    /***************************************************************          食品接触材料原辅料查询          ***********************************************************************/
+    /***************************************************************          食品接触材料原辅料查询          *************************************************************/
     /********************************************************************************************************************************************************************/
-
-
     /**
      *  食品接触材料原辅料查询
      *  两个板块：
@@ -119,5 +124,19 @@ public class HomeController {
     public String queryRawMaterialInfo(HttpServletRequest request){
         logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
         return homeService.queryRawMaterialInfo();
+    }
+
+
+    /********************************************************************************************************************************************************************/
+    /***************************************************************          食品接触材料原辅料查询          ***********************************************************************/
+    /********************************************************************************************************************************************************************/
+    /**
+     *  化学品法规
+     * */
+    @RequestMapping(value = "/chemicalsLaws", method = RequestMethod.GET)
+    @ResponseBody
+    public String chemicalsLaws(HttpServletRequest request){
+        logger.info("X-Real-IP >> " + (IpUtils.clientIp(request)) + request.getRequestURI());
+        return homeService.chemicalsLaws();
     }
 }

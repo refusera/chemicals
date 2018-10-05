@@ -190,4 +190,14 @@ public class DownWebIdUtils {
         }
         return document;
     }
+
+    public static String chemicalsLaws(String url){
+        String content = "";
+        try {
+            content = Jsoup.connect(url).ignoreContentType(true).ignoreHttpErrors(true).data("pager.curPage", "1").data("pager.pageSize", "200").method(Connection.Method.POST).execute().body();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return content;
+    }
 }

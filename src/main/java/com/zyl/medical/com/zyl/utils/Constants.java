@@ -24,5 +24,11 @@ public class Constants {
     public final static String LIST_OF_EXISTING_SUBSTANCES = "ics";
 
 
+    /**
+     *  化学品法规
+     *  中国法规，国外法规，国际规章
+     * */
+    public final static String[] CHEMICALS_LAWS_URLS = {"http://www.hgmsds.com/getChinaLawList.action"
+    ,"http://www.hgmsds.com/getForeignLawList.action", "http://www.hgmsds.com/getInternationalLawList.action"};
 
 }

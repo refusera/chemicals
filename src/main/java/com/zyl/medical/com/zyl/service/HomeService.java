@@ -3,6 +3,7 @@ package com.zyl.medical.com.zyl.service;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.zyl.medical.com.zyl.utils.Constants;
 import com.zyl.medical.com.zyl.utils.DownWebIdUtils;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -28,6 +29,35 @@ public class HomeService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+
+    public String main(){
+
+        String selectSql = "SELECT product_name FROM `hg_product` WHERE product_name != \"\";";
+        List<Map<String, Object>> productList = jdbcTemplate.queryForList(selectSql);
+        for (Map<String, Object> map : productList){
+            String productName = map.get("product_name").toString();
+            /**
+             *  1，化学品数据
+             *  2，危险货物分类
+             *  3，UN编号查询
+             *  4，化学品法规
+             *  5，食品接触材料原辅料查询
+             * */
+            // 1
+            this.beforeSigle(productName);
+            // 2
+            this.riskCategoryBaseInfo(productName);
+            //5
+            this.queryRawMaterialId(productName);
+        }
+        this.chemicalsData(); // 1
+        this.riskCargoCategory(); // 2
+        this.queryByUn(5000); //3
+        this.chemicalsLaws();//4
+        this.queryRawMaterialInfo();//5
+        return null;
+    }
+
     /**
      *  化学品数据的产品入库
      * */
@@ -42,10 +72,9 @@ public class HomeService {
                 for (int i=0; i<jsonArray.size(); i++){
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
                     try {
-                        StringBuffer sql = new StringBuffer("INSERT INTO base_info (web_id, hg_id, cas_no, name_en, name_ch) VALUES (\"");
-                        sql.append(java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8")+"\","+jsonObject.getInteger("hgId")+",\""+jsonObject.getString("casNo")+"\",\"");
-                        sql.append(jsonObject.getString("nameEn") + "\",\"" + jsonObject.getString("nameCh") + "\")");
-                        jdbcTemplate.execute(sql.toString());
+                        String insertSql = "INSERT INTO base_info (web_id, hg_id, cas_no, name_en, name_ch) VALUES (?,?,?,?,?);";
+                        jdbcTemplate.update(insertSql, java.net.URLDecoder.decode(jsonObject.getString("id"), "UTF-8"),
+                                jsonObject.getInteger("hgId"),jsonObject.getString("casNo"),jsonObject.getString("nameEn"),jsonObject.getString("nameCh"));
                         logger.info("HomeService.beforeSigle，入库成功：{}", jsonObject.getString("nameCh"));
                     }catch (Exception e){
                         logger.warn("HomeService.beforeSigle，库中已存在：{}", jsonObject.getString("nameCh"));
@@ -64,7 +93,7 @@ public class HomeService {
     public String chemicalsData(){
         Map<String, Object> resultMap = new HashMap<>();
         //查询生产的产品库
-        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM base_info WHERE is_processed=0 LIMIT 10;";
+        String querySql = "SELECT id,web_id webId, hg_id hgId, cas_no casNo, name_en nameEn, name_ch nameCh FROM base_info WHERE is_processed=0;";
         try {
             List<Map<String, Object>> mapList = jdbcTemplate.queryForList(querySql);
             logger.info("HomeService.productInfo，查询所有未经过处理的产品条数：{}", mapList.size());
@@ -86,6 +115,9 @@ public class HomeService {
                         for (Element tr : listTr){
                             if (tr.children().size() == 2){
                                 baseMap.put(tr.child(0).text().trim(), tr.child(1).text().trim());
+                                if (tr.child(0).text().trim().equals("结构式：") && !ObjectUtils.isEmpty(tr.child(1).getElementsByTag("img"))){
+                                    baseMap.put(tr.child(0).text().trim(), "http://www.hgmsds.com/"+tr.child(1).getElementsByTag("img").attr("src"));
+                                }
                             }
                         }
                     }
@@ -96,7 +128,7 @@ public class HomeService {
                      * */
                     for (int j=1; j<=6; j++){
                         String otherInfo = DownWebIdUtils.otherInfo(jsonObject, baseMap.get("EC 号："), j);
-                        resultMap.put("data"+j, otherInfo);
+                        resultMap.put("data"+j, otherInfo.replace("images\\/", "http://www.hgmsds.com/images/"));
                     }
 
                     //把获取到的数据进行入库，并修改状态
@@ -108,6 +140,7 @@ public class HomeService {
                     String updateSql = "UPDATE base_info SET is_processed=1 where id= " + jsonObject.getInteger("id");
                     jdbcTemplate.update(updateSql);
                     logger.info("HomeService.productInfo，修改状态成功，修改的ID为：{}", jsonObject.getInteger("id"));
+                    Thread.sleep(500);
                 }
             }
         }catch (Exception e){
@@ -170,6 +203,9 @@ public class HomeService {
                             }else if (tr.children().size() == 3){
                                 Map<String, String[]> map = new HashMap<>();
                                 map.put(tr.child(0).text().trim(), new String[]{tr.child(1).text().trim(), tr.child(2).text().trim()});
+                                if (!ObjectUtils.isEmpty(tr.child(1).getElementsByTag("img"))){
+                                    map.put(tr.child(0).text().trim(), new String[]{"http://www.hgmsds.com/"+tr.child(1).getElementsByTag("img").get(0).attr("src"), "http://www.hgmsds.com/"+tr.child(2).getElementsByTag("img").get(0).attr("src")});
+                                }
                                 cargoList.add(map);
                             }
                         }
@@ -188,6 +224,7 @@ public class HomeService {
                         jdbcTemplate.execute(updateStatus);
                         logger.info("HomeService.riskCargoCategory，入库成功：{}", jsonObject.getString("nameCh"));
                     }
+                    Thread.sleep(500);
                 }
             }
         }catch (Exception e){
@@ -220,6 +257,9 @@ public class HomeService {
                         for (Element tr : listTr) {
                             if (tr.children().size() == 2) {
                                 dataMap.put(tr.child(0).text().trim(), tr.child(1).text().trim());
+                                if (tr.child(0).text().trim().equals("运输标签和标记：") && !ObjectUtils.isEmpty(tr.child(1).getElementsByTag("img"))){
+                                    dataMap.put(tr.child(0).text().trim(), "http://www.hgmsds.com/"+tr.child(1).getElementsByTag("img").attr("src"));
+                                }
                             }
                         }
                         allDataMap.put("data" + j, dataMap);
@@ -353,9 +393,50 @@ public class HomeService {
                     jdbcTemplate.execute(updateSqi);
                     logger.info("HomeService.queryRawMaterialInfo，当前商品无信息：{}，修改状态为2", map.get("cname").toString());
                 }
+                Thread.sleep(500);
             }
         }catch (Exception e){
             logger.error("HomeService.queryRawMaterialInfo，查询失败：{}", e);
+        }
+        return content;
+    }
+
+    /**
+     *  化学品法规，分三个内容，打算一次性处理入库（数据库法规名称唯一约束防止法规内容重复）
+     * */
+    public String chemicalsLaws(){
+        String content = "";
+        try {
+            for (int i=0; i< Constants.CHEMICALS_LAWS_URLS.length; i++){
+                String url = Constants.CHEMICALS_LAWS_URLS[i];
+                String json = DownWebIdUtils.chemicalsLaws(url);
+                try {
+                    JSONArray jsonArray = JSONObject.parseObject(json).getJSONArray("dataRows");
+                    for (int x=0; x<jsonArray.size(); x++){
+                        JSONObject jsonObject = jsonArray.getJSONObject(x);
+                        String insertSql = "INSERT into hg_regulation (law_name, admin_dep, file_url, file_id, remark, country, `language`, law_state, law_type,material_time) values (?,?,?,?,?,?,?,?,?,?);";
+                        try {
+                            jdbcTemplate.update(insertSql, jsonObject.getString("lawName"),
+                                    jsonObject.getString("adminDep"),
+                                    jsonObject.getString("url"),
+                                    jsonObject.getString("fileId"),
+                                    jsonObject.getString("remark"),
+                                    jsonObject.getString("country"),
+                                    jsonObject.getString("language"),
+                                    jsonObject.getString("lawState"),
+                                    jsonObject.getString("lawType"),
+                                    jsonObject.getString("materialDate"));
+                        }catch (Exception e){
+                            logger.info("HomeService.chemicalsLaws，法规已存在：{}", jsonObject.getString("lawName"));
+                        }
+                        logger.info("HomeService.chemicalsLaws，入库成功：{}", jsonObject.getString("lawName"));
+                        }
+                }catch (Exception e){
+                    logger.error("HomeService.chemicalsLaws，查询失败：{}", e);
+                }
+            }
+        }catch (Exception e){
+            logger.error("HomeService.chemicalsLaws，查询失败：{}", e);
         }
         return content;
     }
